@@ -592,7 +592,7 @@ async function showOnLensReader(parts, btn) {
 }
 async function sendNote(title, text) {
   const ts = Math.floor(Date.now() / 1000) - new Date().getTimezoneOffset() * 60;
-  const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: text, ti: title, pkg_name: 'rob.easyapp' };
+  const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: text, ti: '', pkg_name: 'rob.easyapp' };
   const st = statusOf(await send(0x05, 0x01, [...int8(1), ...json(note)]));
   log('Lens message "' + title + '" status ' + st);
   if (st !== 0) throw new Error('The glasses said no (code ' + st + ').');
@@ -600,7 +600,7 @@ async function sendNote(title, text) {
 async function showListNote(title, lines, btn) {
   await act('Sending', btn, async () => {
     const ts = Math.floor(Date.now() / 1000) - new Date().getTimezoneOffset() * 60;
-    const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: lines.join('\n'), ti: title, pkg_name: 'rob.easyapp' };
+    const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: lines.join('\n'), ti: '', pkg_name: 'rob.easyapp' };
     const st = statusOf(await send(0x05, 0x01, [...int8(1), ...json(note)]));
     log('List message status ' + st + ' (' + lines.length + ' items)');
     if (st !== 0) throw new Error('The glasses said no (code ' + st + '). Notifications may be turned off.');
