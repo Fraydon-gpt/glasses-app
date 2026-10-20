@@ -3,7 +3,11 @@ package com.rob.glasses
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +16,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+
+private const val MEMOMIND_PACKAGE = "com.memomind.ai.aphrodite"
 
 /** Shows Rob's easy-read screens (assets/index.html) and links them to the glasses. */
 class MainActivity : Activity() {
@@ -55,6 +61,24 @@ class MainActivity : Activity() {
         js("window.onGlassesPermission && window.onGlassesPermission()")
     }
 
+    /** Walking: copy the destination, then hand over to the MemoMind app for on-lens directions. */
+    private fun openMemoMindApp(destination: String) {
+        if (destination.isNotBlank()) {
+            getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText("Destination", destination))
+        }
+        val launch = packageManager.getLaunchIntentForPackage(MEMOMIND_PACKAGE)
+        if (launch != null) {
+            startActivity(launch)
+        } else {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$MEMOMIND_PACKAGE")))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Couldn't find the MemoMind app", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     fun js(code: String) {
         runOnUiThread { web.evaluateJavascript(code, null) }
     }
@@ -77,5 +101,6 @@ class MainActivity : Activity() {
         @JavascriptInterface fun scheduleAlarm(id: String, atMillis: Double, label: String) =
             Alarms.schedule(this@MainActivity, id, atMillis.toLong(), label)
         @JavascriptInterface fun cancelAlarm(id: String) = Alarms.cancel(this@MainActivity, id)
+        @JavascriptInterface fun openMemoMind(destination: String) = runOnUiThread { openMemoMindApp(destination) }
     }
 }

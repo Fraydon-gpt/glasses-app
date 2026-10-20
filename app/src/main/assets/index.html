@@ -97,6 +97,9 @@ input[type="time"], input[type="number"] { font: inherit; font-size: 22px; width
 .items .done .box { background: var(--accent); color: var(--on-accent); }
 .items .del { font-size: 30px; padding: 0; border-color: var(--line); color: var(--muted); }
 .empty { margin: 0; padding: 18px; text-align: center; color: var(--muted); border: 2px dashed var(--line); border-radius: 14px; }
+.walk { display: flex; align-items: center; gap: 16px; text-align: left; min-height: 96px; font-size: 26px; background: var(--soft); }
+.walk-icon { font-size: 40px; line-height: 1; }
+.walk small { display: block; font-size: 17px; font-weight: 400; color: var(--muted); }
 .places { display: flex; flex-direction: column; gap: 10px; }
 .places button { text-align: left; border-color: var(--line); font-weight: 400; }
 .stepper { display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; gap: 12px; align-items: center; }
@@ -205,7 +208,11 @@ pre { font-family: var(--mono); font-size: 13px; white-space: pre-wrap; overflow
       <input type="text" id="place" enterkeyhint="go" autocomplete="off" placeholder="Where to?">
       <button id="go">Go</button>
     </div>
-    <p class="hint">Opens Google Maps with directions. The MemoMind app shows them on your glasses.</p>
+    <p class="hint">Go opens Google Maps for driving. You'll hear the directions in your glasses.</p>
+    <button id="walk" class="walk">
+      <span class="walk-icon" aria-hidden="true">🚶</span>
+      <span>Walking<small>Directions on your glasses, in the MemoMind app</small></span>
+    </button>
     <h2 id="recent-h">Recent places</h2>
     <div class="places" id="places"></div>
   </div>
@@ -355,7 +362,7 @@ function log(msg) {
 }
 function setStatus(kind, text) { const s = $('status'); s.className = 'status ' + kind; s.textContent = text; }
 function setPill(kind, text) { const p = $('pill'); p.className = 'pill ' + kind; p.textContent = text; }
-log('App loaded a1. ' + navigator.userAgent);
+log('App loaded a2. ' + navigator.userAgent);
 
 let port = null, writer = null, reader = null, connected = false, eventId = 0, waiters = [], state = {};
 
@@ -787,6 +794,18 @@ async function tellMissed() {
 }
 setInterval(tick, 1000);
 
+async function walkWithMemoMind() {
+  const place = $('place').value.trim() || (load('places', [])[0] || '');
+  if (place) {
+    const places = load('places', []).filter(p => p.toLowerCase() !== place.toLowerCase());
+    places.unshift(place); save('places', places.slice(0, 6)); drawPlaces();
+  }
+  await disconnect();
+  log('Walking: opening the MemoMind app' + (place ? ' (copied "' + place + '")' : ''));
+  if (IN_APP && AndroidGlasses.openMemoMind) AndroidGlasses.openMemoMind(place);
+  else setStatus('bad', 'Open the MemoMind app and start Maps there.');
+}
+
 // ---------- moving between screens (the phone's Back gesture works too) ----------
 function openView(name, push = true) {
   ['home', 'list', 'maps', 'mem', 'timer'].forEach(v => { $('v-' + v).hidden = v !== name; });
@@ -833,6 +852,7 @@ $('list-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.pr
 $('list-show').addEventListener('click', e => showList(e.currentTarget));
 $('list-clear').addEventListener('click', () => { setItems(currentList, getItems(currentList).filter(i => !i.done)); drawList(); });
 $('go').addEventListener('click', () => goTo($('place').value));
+$('walk').addEventListener('click', walkWithMemoMind);
 $('place').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); goTo($('place').value); } });
 $('brtDown').addEventListener('click', e => setting('Brightness', 0x0E, clamp((state.brt ?? 5) - 1, 0, 10), e.currentTarget));
 $('brtUp').addEventListener('click', e => setting('Brightness', 0x0E, clamp((state.brt ?? 5) + 1, 0, 10), e.currentTarget));
