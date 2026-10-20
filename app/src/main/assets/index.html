@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Rob's Glasses Home</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: phone-first single column; home = battery + 2x2 big tiles; each tile opens its own full screen with a big Back button */
+:root {
+  --bg: #F4F6F4;
+  --card: #FFFFFF;
+  --fg: #101513;
+  --muted: #3E4844;
+  --line: #C9D1CD;
+  --accent: #0B5D52;
+  --on-accent: #FFFFFF;
+  --soft: #E3EFEC;
+  --ok-bg: #DDF2E3; --ok-fg: #14532D;
+  --wait-bg: #FBEFD5; --wait-fg: #6B4207;
+  --bad-bg: #FBE3E1; --bad-fg: #7F1D1D;
+  --font: "Atkinson Hyperlegible", "Segoe UI", Roboto, Arial, sans-serif;
+  --mono: ui-monospace, "Roboto Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E1211; --card: #171D1B; --fg: #F2F5F3; --muted: #C3CCC8; --line: #3A4541;
+  --accent: #6FD8C5; --on-accent: #062B25; --soft: #1F2D29;
+  --ok-bg: #123A24; --ok-fg: #B9F0CB; --wait-bg: #3D2C0B; --wait-fg: #FBDFA2; --bad-bg: #431615; --bad-fg: #FBC7C3;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0E1211; --card: #171D1B; --fg: #F2F5F3; --muted: #C3CCC8; --line: #3A4541;
+  --accent: #6FD8C5; --on-accent: #062B25; --soft: #1F2D29;
+  --ok-bg: #123A24; --ok-fg: #B9F0CB; --wait-bg: #3D2C0B; --wait-fg: #FBDFA2; --bad-bg: #431615; --bad-fg: #FBC7C3;
+  color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 20px; line-height: 1.5; }
+main { max-width: 34rem; margin: 0 auto; padding-block: 20px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.view { display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 32px; line-height: 1.2; margin: 0; }
+h2 { font-size: 24px; margin: 0; }
+.pill { font-size: 18px; font-weight: 700; padding: 6px 14px; border-radius: 999px; }
+.pill.off { background: var(--bad-bg); color: var(--bad-fg); }
+.pill.wait { background: var(--wait-bg); color: var(--wait-fg); }
+.pill.on { background: var(--ok-bg); color: var(--ok-fg); }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.status { font-size: 21px; font-weight: 700; padding: 14px 18px; border-radius: 14px; }
+.status.idle { background: var(--soft); }
+.status.wait { background: var(--wait-bg); color: var(--wait-fg); }
+.status.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.status.bad { background: var(--bad-bg); color: var(--bad-fg); }
+button { font: inherit; font-size: 22px; font-weight: 700; min-height: 64px; border-radius: 16px; cursor: pointer;
+  padding: 10px 16px; border: 2px solid var(--accent); background: var(--card); color: var(--fg); width: 100%; }
+button.primary { background: var(--accent); color: var(--on-accent); min-height: 76px; font-size: 26px; }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: 4px solid var(--fg); outline-offset: 3px; }
+.battery { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.battery span { color: var(--muted); font-size: 22px; }
+.battery strong { font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tile { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: 20px; font-size: 24px; line-height: 1.2; text-align: center; }
+.tile.wide { grid-column: span 2; min-height: 110px; flex-direction: row; gap: 14px; }
+.tile.wide small { display: none; }
+.tile svg { width: 44px; height: 44px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tile small { font-size: 16px; font-weight: 400; color: var(--muted); }
+.back { width: auto; align-self: flex-start; min-width: 140px; border-color: var(--line); }
+.addrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.addrow button { width: auto; min-width: 96px; }
+input[type="text"], textarea { font: inherit; font-size: 22px; width: 100%; min-height: 64px; padding: 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--fg); }
+textarea { min-height: 160px; resize: vertical; }
+.hint { margin: 0; color: var(--muted); font-size: 18px; }
+.alarm { background: var(--wait-bg); color: var(--wait-fg); border: 3px solid var(--wait-fg); border-radius: 18px; padding: 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 14px; font-size: 26px; }
+.quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.quick button { font-size: 22px; padding: 6px; }
+.running { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.running li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; background: var(--soft); border-radius: 14px; padding: 12px 14px; }
+.running .left { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.running .what { font-size: 18px; color: var(--muted); overflow-wrap: anywhere; }
+.running button { width: auto; min-width: 104px; }
+.timerow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+input[type="time"], input[type="number"] { font: inherit; font-size: 22px; width: 100%; min-height: 64px; padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--fg); }
+.mems .item { font-weight: 400; }
+.mems small { display: block; font-size: 15px; color: var(--muted); }
+.found { border: 3px solid var(--accent); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.found p { margin: 0; font-size: 24px; }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.items li { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 10px; }
+.items .item { text-align: left; font-size: 24px; display: flex; align-items: center; gap: 14px; border-color: var(--line); overflow-wrap: anywhere; }
+.items .box { flex: none; width: 34px; height: 34px; border: 3px solid var(--accent); border-radius: 8px; display: grid; place-items: center; font-size: 24px; line-height: 1; }
+.items .done .item { color: var(--muted); text-decoration: line-through; }
+.items .done .box { background: var(--accent); color: var(--on-accent); }
+.items .del { font-size: 30px; padding: 0; border-color: var(--line); color: var(--muted); }
+.empty { margin: 0; padding: 18px; text-align: center; color: var(--muted); border: 2px dashed var(--line); border-radius: 14px; }
+.places { display: flex; flex-direction: column; gap: 10px; }
+.places button { text-align: left; border-color: var(--line); font-weight: 400; }
+.stepper { display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; gap: 12px; align-items: center; }
+.stepper button { font-size: 34px; padding: 0; }
+.stepper output { text-align: center; font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stepper small { display: block; font-size: 16px; font-weight: 400; color: var(--muted); }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 21px; }
+.toggle button { width: auto; min-width: 120px; }
+.toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+details { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 12px 18px; }
+details > div { display: flex; flex-direction: column; gap: 14px; padding-block: 8px; }
+summary { cursor: pointer; font-weight: 700; font-size: 22px; min-height: 52px; display: flex; align-items: center; }
+pre { font-family: var(--mono); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; margin: 0; }
+@media (prefers-reduced-motion: no-preference) { button { transition: transform .1s; } button:active:not(:disabled) { transform: scale(.98); } }
+</style>
+
+<main>
+  <div id="alarm" class="alarm" role="alert" hidden>
+    <strong id="alarm-text"></strong>
+    <button id="alarm-ok" class="primary">OK</button>
+  </div>
+  <!-- HOME -->
+  <div class="view" id="v-home">
+    <header>
+      <h1>My glasses</h1>
+      <span id="pill" class="pill off">Not connected</span>
+    </header>
+    <div id="status" class="status idle" role="status" aria-live="polite">Close the MemoMind app, then tap Connect.</div>
+    <button id="connect" class="primary">Connect</button>
+
+    <section class="card" aria-label="Battery">
+      <div class="battery"><span>Battery</span><strong id="battery">--</strong></div>
+    </section>
+
+    <div class="grid2">
+      <button class="tile" data-open="shop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.2a1.5 1.5 0 0 0 1.5 1.3h8.4a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg>
+        Shopping list<small id="shop-count">0 items</small>
+      </button>
+      <button class="tile" data-open="todo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l2 2 3-3M4 13l2 2 3-3M4 20l2 2 3-3M13 7h8M13 14h8M13 21h8"/></svg>
+        To-do list<small id="todo-count">0 items</small>
+      </button>
+      <button class="tile" data-open="mem">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/></svg>
+        Memory Keeper<small id="mem-count">0 saved</small>
+      </button>
+      <button class="tile" data-open="timer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+        Timers<small id="timer-count">None running</small>
+      </button>
+      <button class="tile wide" data-open="maps">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.3-7-11.5a7 7 0 0 1 14 0C19 14.7 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        Maps<small>Pick a place</small>
+      </button>
+    </div>
+
+    <details>
+      <summary>Glasses display settings</summary>
+      <div>
+        <h2>Brightness</h2>
+        <div class="stepper">
+          <button id="brtDown" class="needs" aria-label="Dimmer">−</button>
+          <output id="brt">--<small>of 10</small></output>
+          <button id="brtUp" class="needs" aria-label="Brighter">+</button>
+        </div>
+        <div class="toggle"><span>Automatic brightness</span><button id="auto" class="needs" aria-pressed="false">Off</button></div>
+        <h2>Text height on lens</h2>
+        <div class="stepper">
+          <button id="posDown" class="needs" aria-label="Height level down">−</button>
+          <output id="pos">--<small>of 8</small></output>
+          <button id="posUp" class="needs" aria-label="Height level up">+</button>
+        </div>
+      </div>
+    </details>
+
+    <details id="details">
+      <summary>Details for Claude</summary>
+      <div>
+        <p class="hint">If something goes wrong, tap Copy, then paste it in the chat.</p>
+        <pre id="log"></pre>
+        <button id="copy">Copy details</button>
+      </div>
+    </details>
+  </div>
+
+  <!-- LIST (shopping or to-do) -->
+  <div class="view" id="v-list" hidden>
+    <button class="back" data-back>← Back</button>
+    <h1 id="list-title">Shopping list</h1>
+    <div class="addrow">
+      <input type="text" id="list-input" enterkeyhint="done" autocomplete="off" placeholder="Add an item">
+      <button id="list-add">Add</button>
+    </div>
+    <p class="hint">Tap the microphone on your keyboard to speak instead of typing.</p>
+    <button id="list-show" class="primary needs">Show on my lens</button>
+    <ul class="items" id="list-items"></ul>
+    <button id="list-clear">Remove checked items</button>
+  </div>
+
+  <!-- MAPS -->
+  <div class="view" id="v-maps" hidden>
+    <button class="back" data-back>← Back</button>
+    <h1>Maps</h1>
+    <div class="addrow">
+      <input type="text" id="place" enterkeyhint="go" autocomplete="off" placeholder="Where to?">
+      <button id="go">Go</button>
+    </div>
+    <p class="hint">Opens Google Maps with directions. The MemoMind app shows them on your glasses.</p>
+    <h2 id="recent-h">Recent places</h2>
+    <div class="places" id="places"></div>
+  </div>
+
+  <!-- MEMORY KEEPER -->
+  <div class="view" id="v-mem" hidden>
+    <button class="back" data-back>← Back</button>
+    <h1>Memory Keeper</h1>
+    <section class="card">
+      <h2>Remember something</h2>
+      <textarea id="mem-input" placeholder="My spare keys are in the blue bowl by the door"></textarea>
+      <button id="mem-save" class="primary">Save</button>
+    </section>
+    <section class="card">
+      <h2>Find something</h2>
+      <div class="addrow">
+        <input type="text" id="mem-find" enterkeyhint="search" autocomplete="off" placeholder="keys">
+        <button id="mem-go">Find</button>
+      </div>
+      <div id="mem-found"></div>
+    </section>
+    <p class="hint">Tap the microphone on your keyboard to speak instead of typing.</p>
+    <h2>Everything saved</h2>
+    <ul class="items mems" id="mem-list"></ul>
+  </div>
+
+  <!-- TIMERS -->
+  <div class="view" id="v-timer" hidden>
+    <button class="back" data-back>← Back</button>
+    <h1>Timers</h1>
+    <input type="text" id="t-label" autocomplete="off" placeholder="What for? (chicken, laundry…)">
+    <h2>Start a timer</h2>
+    <div class="quick">
+      <button data-min="5">5 min</button><button data-min="10">10 min</button><button data-min="15">15 min</button>
+      <button data-min="20">20 min</button><button data-min="30">30 min</button><button data-min="60">1 hour</button>
+    </div>
+    <div class="addrow">
+      <input type="number" id="t-mins" inputmode="numeric" min="1" max="1440" placeholder="Other minutes">
+      <button id="t-start">Start</button>
+    </div>
+    <h2>Remind me at a time</h2>
+    <div class="addrow">
+      <input type="time" id="t-at">
+      <button id="t-set">Set</button>
+    </div>
+    <h2 id="run-h">Running</h2>
+    <ul class="running" id="t-list"></ul>
+    <p class="hint">Keep this page open. When a timer is done it pops up on your lens and here, and your phone buzzes.</p>
+  </div>
+</main>
+
+<script>
+// GM-START  (official MemoMind GM framing, see GlassSDK/docs/PROTOCOL.md)
+const GM = {
+  tlv(type, value) {
+    const n = value.length;
+    return [type, (n >> 16) & 255, (n >> 8) & 255, n & 255, ...value];
+  },
+  frames(event, service, command, body, frameBytes) {
+    const logical = body.length + 9, size = frameBytes - 9, out = [];
+    const chunks = [];
+    for (let i = 0; i < body.length; i += size) chunks.push(body.slice(i, i + size));
+    if (!chunks.length) chunks.push([]);
+    chunks.forEach((chunk, i) => {
+      const f = [i === 0 ? 0xFA : i, (logical >> 16) & 255, (logical >> 8) & 255, logical & 255, event, service, command, ...chunk];
+      const sum = f.reduce((a, b) => (a + b) & 0xFFFF, 0);
+      f.push(sum >> 8, sum & 255);
+      out.push(f);
+    });
+    return out;
+  },
+  parseTlvs(body) {
+    const list = [];
+    let i = 0;
+    while (i + 4 <= body.length) {
+      const type = body[i], n = (body[i + 1] << 16) | (body[i + 2] << 8) | body[i + 3];
+      list.push({ type, value: body.slice(i + 4, i + 4 + n) });
+      i += 4 + n;
+    }
+    return list;
+  },
+  makeReassembler(onMessage, onProblem) {
+    let cur = null;
+    return function push(bytes) {
+      if (bytes.length < 9) return onProblem('short frame');
+      const sum = bytes.slice(0, -2).reduce((a, b) => (a + b) & 0xFFFF, 0);
+      const got = (bytes[bytes.length - 2] << 8) | bytes[bytes.length - 1];
+      if (sum !== got) return onProblem('bad checksum');
+      const head = bytes[0], logical = (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+      const chunk = bytes.slice(7, -2);
+      const cont = cur && cur.logical === logical && cur.event === bytes[4] && cur.service === bytes[5] && cur.command === bytes[6];
+      if (cont && (head === cur.next || head === 0xFA)) cur.next++;
+      else if (head === 0xFA) cur = { logical, event: bytes[4], service: bytes[5], command: bytes[6], body: [], next: 1 };
+      else { cur = null; return onProblem('out-of-order frame'); }
+      cur.body.push(...chunk);
+      if (cur.body.length >= cur.logical - 9) { const m = cur; cur = null; onMessage(m); }
+    };
+  }
+};
+// GM-END
+
+const SPP_UUID = '00001101-0000-1000-8000-00805f9b34fb';
+
+// ---------- inside the Android app: the phone's Bluetooth stands in for Chrome's ----------
+const IN_APP = !!window.AndroidGlasses;
+if (IN_APP) {
+  const makePort = () => {
+    let ctrl = null;
+    const port = {
+      readable: null, writable: null,
+      getInfo: () => ({ app: true }),
+      open: () => new Promise((resolve, reject) => {
+        window.onGlassesOpen = name => {
+          log('Linked to ' + name);
+          port.readable = new ReadableStream({ start(c) { ctrl = c; } });
+          port.writable = new WritableStream({ write(chunk) {
+            let bin = ''; for (const b of chunk) bin += String.fromCharCode(b);
+            AndroidGlasses.write(btoa(bin));
+          } });
+          resolve();
+        };
+        window.onGlassesError = msg => reject(Object.assign(new Error(msg), { name: 'AppError' }));
+        AndroidGlasses.connect();
+      }),
+      close: async () => { AndroidGlasses.disconnect(); },
+      forget: async () => {}
+    };
+    window.onGlassesBytes = b64 => {
+      if (!ctrl) return;
+      const bin = atob(b64), a = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      ctrl.enqueue(a);
+    };
+    window.onGlassesClosed = () => { try { ctrl && ctrl.close(); } catch (_) {} ctrl = null; };
+    return port;
+  };
+  Object.defineProperty(navigator, 'serial', { configurable: true, value: { getPorts: async () => [], requestPort: async () => makePort(), addEventListener() {} } });
+  window.onGlassesPermission = () => { if (!connected) connect(); };
+}
+const $ = id => document.getElementById(id);
+const logLines = [];
+const hex = a => Array.from(a, b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+function log(msg) {
+  logLines.push(new Date().toLocaleTimeString() + '  ' + msg);
+  if (logLines.length > 400) logLines.splice(0, 100);
+  $('log').textContent = logLines.join('\n');
+}
+function setStatus(kind, text) { const s = $('status'); s.className = 'status ' + kind; s.textContent = text; }
+function setPill(kind, text) { const p = $('pill'); p.className = 'pill ' + kind; p.textContent = text; }
+log('App loaded a1. ' + navigator.userAgent);
+
+let port = null, writer = null, reader = null, connected = false, eventId = 0, waiters = [], state = {};
+
+const reassemble = GM.makeReassembler(msg => {
+  log('IN  svc ' + msg.service + ' cmd ' + msg.command + ' event ' + msg.event + ' ' + (msg.body.length ? msg.body.length + ' bytes' : '(empty)'));
+  const w = waiters.find(w => w.match(msg));
+  if (w) { waiters = waiters.filter(x => x !== w); w.resolve(msg); }
+}, problem => log('Problem with incoming data: ' + problem));
+
+// Split the serial byte stream into physical frames. The glasses repeat 0xFA on
+// continuation frames, so each frame's size comes from the bytes still owed.
+let rxBuf = [], owed = null;
+function feedStream(bytes) {
+  rxBuf.push(...bytes);
+  while (rxBuf.length >= 9) {
+    const head = rxBuf[0];
+    if (head !== 0xFA && !(owed && head > 0 && head < 0xF1)) { log('Skipping byte ' + hex([head])); rxBuf.shift(); owed = null; continue; }
+    const logical = (rxBuf[1] << 16) | (rxBuf[2] << 8) | rxBuf[3];
+    if (logical < 9) { rxBuf.shift(); continue; }
+    const key = logical + '/' + rxBuf[4] + '/' + rxBuf[5] + '/' + rxBuf[6];
+    const left = owed && owed.key === key ? owed.left : logical - 9;
+    const size = 9 + Math.min(left, 503);
+    if (rxBuf.length < size) break;
+    const frame = rxBuf.splice(0, size);
+    const sum = frame.slice(0, -2).reduce((a, b) => (a + b) & 0xFFFF, 0);
+    if (sum !== ((frame[size - 2] << 8) | frame[size - 1])) { log('Bad frame, resyncing'); rxBuf.unshift(...frame.slice(1)); owed = null; continue; }
+    const rest = left - (size - 9);
+    owed = rest > 0 ? { key, left: rest } : null;
+    reassemble(frame);
+  }
+}
+
+function waitFor(match, ms) {
+  return new Promise((resolve, reject) => {
+    const w = { match, resolve };
+    waiters.push(w);
+    setTimeout(() => { if (waiters.includes(w)) { waiters = waiters.filter(x => x !== w); reject(new Error('no answer')); } }, ms);
+  });
+}
+
+let queue = Promise.resolve();
+function send(service, command, body = []) {
+  const run = queue.then(() => sendNow(service, command, body));
+  queue = run.catch(() => {});
+  return run;
+}
+async function sendNow(service, command, body) {
+  if (!connected) throw new Error('not connected');
+  eventId = eventId % 250 + 1;
+  const ev = eventId, frames = GM.frames(ev, service, command, body, 512);
+  const same = m => m.event === ev && m.service === service && m.command === command;
+  let reply = null;
+  for (let i = 0; i < frames.length; i++) {
+    const last = i === frames.length - 1;
+    const wait = waitFor(last ? (m => same(m) && m.body.length > 0) : same, 5000);
+    log('OUT svc ' + service + ' cmd ' + command + ' event ' + ev + ' ' + frames[i].length + ' bytes');
+    await writer.write(new Uint8Array(frames[i]));
+    reply = await wait;
+  }
+  return GM.parseTlvs(reply.body);
+}
+const statusOf = tlvs => { const t = tlvs.find(t => t.type === 6); return t ? t.value[0] : null; };
+const textOf = tlvs => { const t = tlvs.find(t => t.type === 2 || t.type === 5); return t ? new TextDecoder().decode(new Uint8Array(t.value)).replace(/\0+$/, '') : null; };
+const int8 = v => GM.tlv(0x08, [v & 255]);
+const json = v => GM.tlv(0x05, Array.from(new TextEncoder().encode(JSON.stringify(v))));
+
+
+// ---------- screen ----------
+function render() {
+  $('battery').textContent = typeof state.bat === 'number' ? state.bat + '%' + (state.charging ? ' ⚡' : '') : '--';
+  $('brt').firstChild.textContent = typeof state.brt === 'number' ? state.brt : '--';
+  $('pos').firstChild.textContent = typeof state.pos === 'number' ? state.pos : '--';
+  const auto = !!state.autobrt;
+  $('auto').setAttribute('aria-pressed', String(auto));
+  $('auto').textContent = auto ? 'On' : 'Off';
+  document.querySelectorAll('.needs').forEach(b => { b.disabled = !connected; });
+  $('connect').hidden = connected;
+}
+
+async function refresh() {
+  try {
+    const info = JSON.parse(textOf(await send(0x01, 0x06)) || '{}');
+    state = info;
+    log('Status: bat ' + info.bat + ' brt ' + info.brt + ' autobrt ' + info.autobrt + ' pos ' + info.pos);
+  } catch (e) { log('Status read failed: ' + e.message); }
+  render();
+}
+
+function onDisconnected() {
+  if (!connected) return;
+  connected = false; waiters = []; rxBuf = []; owed = null;
+  setPill('off', 'Not connected');
+  setStatus('bad', 'Glasses disconnected. Tap Connect.');
+  log('Disconnected');
+  render();
+}
+
+async function openPort(p) {
+  port = p;
+  await port.open({ baudRate: 115200 });
+  writer = port.writable.getWriter();
+  connected = true;
+  (async () => {
+    reader = port.readable.getReader();
+    try { for (;;) { const { value, done } = await reader.read(); if (done) break; log('RAW ' + value.length + ' bytes: ' + hex(value.slice(0, 24)) + (value.length > 24 ? ' …' : '')); feedStream(Array.from(value)); } }
+    catch (e) { log('Read stopped: ' + e.message); }
+    if (connected) { try { reader.releaseLock(); writer.releaseLock(); await port.close(); } catch (_) {} }
+    onDisconnected();
+  })();
+}
+
+async function connect() {
+  if (!navigator.serial) { setStatus('bad', 'Please open this page in Chrome on your Pixel.'); log('navigator.serial missing'); return; }
+  $('connect').disabled = true;
+  setPill('wait', 'Connecting…');
+  try {
+    let p = null, remembered = false;
+    try { const known = await navigator.serial.getPorts(); log('Remembered devices: ' + known.length); p = known[0] || null; remembered = !!p; } catch (_) {}
+    let hb = null;
+    if (p) {
+      log('Trying the remembered device ' + JSON.stringify(p.getInfo ? p.getInfo() : {}));
+      setStatus('wait', 'Connecting…');
+      try { await openPort(p); hb = statusOf(await send(0x01, 0x01)); }
+      catch (e) {
+        log('Remembered device did not answer: ' + e.message);
+        await closePort();
+        try { if (p.forget) { await p.forget(); log('Forgot that device'); } } catch (_) {}
+        p = null;
+      }
+    }
+    if (!p) {
+      setStatus('wait', IN_APP ? 'Connecting…' : 'Pick MemoMind One from the list…');
+      p = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: [SPP_UUID], filters: [{ bluetoothServiceClassId: SPP_UUID }] });
+      log('Picked ' + JSON.stringify(p.getInfo ? p.getInfo() : {}));
+      setStatus('wait', 'Connecting…');
+      await openPort(p);
+      hb = statusOf(await send(0x01, 0x01));
+    }
+    log('Heartbeat: ' + hb);
+    if (hb !== 0) throw new Error('The glasses answered, but not with OK (code ' + hb + ').');
+    setPill('on', 'Connected');
+    setStatus('ok', 'Connected ✓');
+    await refresh();
+    await tellMissed();
+  } catch (e) {
+    log('Connect failed: ' + e.name + ': ' + e.message);
+    if (connected) { connected = false; try { await reader.cancel(); } catch (_) {} }
+    setPill('off', 'Not connected');
+    setStatus('bad', e.name === 'NotFoundError' ? 'No glasses picked. Tap Connect to try again.'
+      : e.message === 'no answer' ? 'The glasses didn’t answer. Close the MemoMind app and try again.'
+      : e.name === 'NetworkError' || e.name === 'InvalidStateError' ? 'Couldn’t reach the glasses. Close the MemoMind app and try again.'
+      : e.message);
+  }
+  $('connect').disabled = false;
+  render();
+}
+
+async function closePort() {
+  connected = false;
+  try { await reader.cancel(); } catch (_) {}
+  await new Promise(r => setTimeout(r, 300));
+  try { reader.releaseLock(); } catch (_) {}
+  try { writer.releaseLock(); } catch (_) {}
+  try { await port.close(); } catch (_) {}
+  rxBuf = []; owed = null; waiters = [];
+}
+
+async function disconnect() {
+  if (!connected) return;
+  log('Letting go of the glasses');
+  await closePort();
+  setPill('off', 'Not connected');
+  setStatus('idle', 'Let go of the glasses so the MemoMind app can use them. Tap Connect to come back.');
+  render();
+}
+
+// Shows a short result on the button that was tapped, then puts its label back.
+function flash(btn, text) {
+  if (!btn) return;
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = text;
+  clearTimeout(btn._t);
+  btn._t = setTimeout(() => { btn.textContent = old; }, 2500);
+}
+async function act(label, btn, fn) {
+  try { if (btn) flash(btn, label + '…'); await fn(); }
+  catch (e) {
+    log(label + ' failed: ' + e.message);
+    const msg = e.message === 'no answer' ? 'No answer. Try again.' : e.message === 'not connected' ? 'Connect first' : 'Didn’t work';
+    flash(btn, msg);
+    setStatus('bad', e.message === 'no answer' ? 'The glasses didn’t answer. Try again.' : e.message);
+  }
+}
+
+async function setting(label, command, value, btn) {
+  await act(label, btn, async () => {
+    const st = statusOf(await send(0x01, command, int8(value)));
+    log(label + ' -> ' + value + ' status ' + st);
+    if (st !== 0) throw new Error('The glasses didn’t accept that (code ' + st + ').');
+    await new Promise(r => setTimeout(r, 400));
+    await refresh();
+  });
+}
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// ---------- teleprompter (used by the reader and by the lists) ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// The glasses answer code 8 ("pkg parse error, wait retry") while still busy
+// with the previous step, so wait a moment and try that step again.
+async function sendPatiently(label, service, command, body) {
+  for (let tryNo = 1; tryNo <= 8; tryNo++) {
+    const tlvs = await send(service, command, body);
+    const st = statusOf(tlvs);
+    if (st !== 8) { log(label + ' status ' + st + (tryNo > 1 ? ' (try ' + tryNo + ')' : '')); return st; }
+    log(label + ' busy: ' + (textOf(tlvs) || 'code 8') + ', waiting');
+    await sleep(400 * tryNo);
+  }
+  return 8;
+}
+async function showOnLensReader(parts, btn) {
+  await act('Sending', btn, async () => {
+    try { await send(0x04, 0x02); } catch (_) {}
+    await sleep(500);
+    const st1 = await sendPatiently('Teleprompter start', 0x04, 0x01, json([600, 350, 3, 2, 2, 2, 1]));
+    if (st1 !== 0) throw new Error('The glasses didn’t start the reader (code ' + st1 + ').');
+    await sleep(600);
+    const st2 = await sendPatiently('Teleprompter text', 0x04, 0x05, [...int8(1), ...json(parts)]);
+    if (st2 !== 0) throw new Error('The glasses didn’t take the text (code ' + st2 + ').');
+    await sleep(300);
+    await sendPatiently('Teleprompter display', 0x04, 0x04, [...int8(1), ...int8(0), ...json([0, 0])]);
+    flash(btn, 'On your lens ✓');
+  });
+}
+async function sendNote(title, text) {
+  const ts = Math.floor(Date.now() / 1000) - new Date().getTimezoneOffset() * 60;
+  const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: text, ti: title, pkg_name: 'rob.easyapp' };
+  const st = statusOf(await send(0x05, 0x01, [...int8(1), ...json(note)]));
+  log('Lens message "' + title + '" status ' + st);
+  if (st !== 0) throw new Error('The glasses said no (code ' + st + ').');
+}
+async function showListNote(title, lines, btn) {
+  await act('Sending', btn, async () => {
+    const ts = Math.floor(Date.now() / 1000) - new Date().getTimezoneOffset() * 60;
+    const note = { id: Date.now() % 100000, a: title, type: 0, ts, c: lines.join('\n'), ti: title, pkg_name: 'rob.easyapp' };
+    const st = statusOf(await send(0x05, 0x01, [...int8(1), ...json(note)]));
+    log('List message status ' + st + ' (' + lines.length + ' items)');
+    if (st !== 0) throw new Error('The glasses said no (code ' + st + '). Notifications may be turned off.');
+    flash(btn, 'On your lens ✓');
+  });
+}
+
+// ---------- saved data (kept on this phone) ----------
+function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (_) { return fallback; } }
+function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (_) {} }
+
+// ---------- lists ----------
+const LISTS = { shop: { title: 'Shopping list', placeholder: 'Add an item' }, todo: { title: 'To-do list', placeholder: 'Add a task' } };
+let currentList = 'shop';
+const getItems = k => load('list-' + k, []);
+const setItems = (k, items) => { save('list-' + k, items); drawCounts(); };
+
+function drawCounts() {
+  for (const k of Object.keys(LISTS)) {
+    const left = getItems(k).filter(i => !i.done).length;
+    $(k + '-count').textContent = left + (left === 1 ? ' item' : ' items');
+  }
+}
+function drawList() {
+  const ul = $('list-items'); ul.textContent = '';
+  const items = getItems(currentList);
+  if (!items.length) {
+    const p = document.createElement('li'); p.className = 'empty';
+    p.textContent = 'Nothing here yet. Add your first one above.';
+    ul.appendChild(p);
+  }
+  items.forEach((it, i) => {
+    const li = document.createElement('li'); if (it.done) li.className = 'done';
+    const b = document.createElement('button'); b.className = 'item';
+    const box = document.createElement('span'); box.className = 'box'; box.textContent = it.done ? '✓' : '';
+    const t = document.createElement('span'); t.textContent = it.text;
+    b.append(box, t);
+    b.setAttribute('aria-pressed', String(!!it.done));
+    b.addEventListener('click', () => { const all = getItems(currentList); all[i].done = !all[i].done; setItems(currentList, all); drawList(); });
+    const d = document.createElement('button'); d.className = 'del'; d.textContent = '×';
+    d.setAttribute('aria-label', 'Remove ' + it.text);
+    d.addEventListener('click', () => { const all = getItems(currentList); all.splice(i, 1); setItems(currentList, all); drawList(); });
+    li.append(b, d); ul.appendChild(li);
+  });
+  $('list-clear').hidden = !items.some(i => i.done);
+}
+function addItem() {
+  const v = $('list-input').value.trim();
+  if (!v) { $('list-input').focus(); return; }
+  const all = getItems(currentList); all.push({ text: v, done: false });
+  setItems(currentList, all); $('list-input').value = ''; drawList(); $('list-input').focus();
+}
+function showList(btn) {
+  const left = getItems(currentList).filter(i => !i.done).map(i => '• ' + i.text);
+  if (!left.length) { flash(btn, 'The list is empty'); return; }
+  showListNote(LISTS[currentList].title, left, btn);
+}
+
+// ---------- maps ----------
+function drawPlaces() {
+  const box = $('places'); box.textContent = '';
+  const places = load('places', []);
+  $('recent-h').hidden = !places.length;
+  places.forEach(p => {
+    const b = document.createElement('button'); b.textContent = p;
+    b.addEventListener('click', () => goTo(p));
+    box.appendChild(b);
+  });
+}
+async function goTo(place) {
+  place = (place || '').trim();
+  if (!place) { $('place').focus(); return; }
+  const places = load('places', []).filter(p => p.toLowerCase() !== place.toLowerCase());
+  places.unshift(place); save('places', places.slice(0, 6)); drawPlaces();
+  await disconnect();
+  const url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' + encodeURIComponent(place);
+  log('Opening Google Maps for ' + place);
+  location.href = url;
+}
+
+// ---------- Memory Keeper ----------
+const STOP = new Set('a an the my is are was were where did i put what who whats where\'s is\'s of to in on at for and or it its do does about'.split(' '));
+const words = t => t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
+const getMems = () => load('memories', []);
+function niceDate(ms) { const d = new Date(ms); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+function drawMemCount() { const n = getMems().length; $('mem-count').textContent = n + ' saved'; }
+function drawMems() {
+  const ul = $('mem-list'); ul.textContent = '';
+  const mems = getMems();
+  if (!mems.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Nothing saved yet. Try: "My passport is in the top desk drawer."'; ul.appendChild(li); }
+  mems.slice().reverse().forEach(m => {
+    const li = document.createElement('li');
+    const b = document.createElement('div'); b.className = 'item'; b.style.cssText = 'border:2px solid var(--line);border-radius:16px;padding:10px 16px;display:block';
+    b.textContent = m.text;
+    const sm = document.createElement('small'); sm.textContent = 'Saved ' + niceDate(m.at); b.appendChild(sm);
+    const d = document.createElement('button'); d.className = 'del'; d.textContent = '×'; d.setAttribute('aria-label', 'Forget ' + m.text);
+    d.addEventListener('click', () => { save('memories', getMems().filter(x => x.at !== m.at)); drawMems(); drawMemCount(); });
+    li.append(b, d); ul.appendChild(li);
+  });
+}
+function saveMem() {
+  const t = $('mem-input').value.trim();
+  if (!t) { $('mem-input').focus(); return; }
+  const mems = getMems(); mems.push({ text: t, at: Date.now() }); save('memories', mems);
+  $('mem-input').value = ''; drawMems(); drawMemCount(); flash($('mem-save'), 'Saved ✓');
+}
+async function findMem() {
+  const q = words($('mem-find').value);
+  const box = $('mem-found'); box.textContent = '';
+  if (!q.length) { $('mem-find').focus(); return; }
+  const hits = getMems().map(m => ({ m, score: words(m.text).filter(w => q.some(x => w.startsWith(x) || x.startsWith(w))).length }))
+    .filter(h => h.score > 0).sort((a, b) => b.score - a.score || b.m.at - a.m.at).slice(0, 3).map(h => h.m);
+  const card = document.createElement('div'); card.className = 'found';
+  if (!hits.length) { const p = document.createElement('p'); p.textContent = 'I don\'t have anything saved about that.'; card.appendChild(p); box.appendChild(card); return; }
+  hits.forEach(h => { const p = document.createElement('p'); p.textContent = h.text; card.appendChild(p); });
+  box.appendChild(card);
+  if (connected) { try { await sendNote('Memory Keeper', hits.map(h => h.text).join('\n')); flash($('mem-go'), 'On lens ✓'); } catch (e) { log('Memory to lens failed: ' + e.message); } }
+}
+
+// ---------- Timers ----------
+const getTimers = () => load('timers', []);
+const setTimers = t => { save('timers', t); drawTimers(); };
+function fmtLeft(ms) {
+  const s = Math.max(0, Math.round(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0') : m + ':' + String(sec).padStart(2, '0');
+}
+function addTimer(due, label, kind) {
+  const id = Date.now(), name = label || (kind === 'at' ? 'Reminder' : 'Timer');
+  const t = getTimers(); t.push({ id, due, label: name, kind });
+  if (IN_APP) { try { AndroidGlasses.scheduleAlarm(String(id), due, name); } catch (e) { log('Phone alarm failed: ' + e.message); } }
+  setTimers(t); $('t-label').value = '';
+  if (connected) sendNote('Timer set', (label || 'Timer') + ' — ' + (kind === 'at' ? 'at ' + new Date(due).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : fmtLeft(due - Date.now()))).catch(e => log('Timer note failed: ' + e.message));
+}
+function drawTimers() {
+  const ul = $('t-list'); ul.textContent = '';
+  const t = getTimers().filter(x => !x.fired).sort((a, b) => a.due - b.due);
+  $('run-h').hidden = !t.length;
+  t.forEach(x => {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    const left = document.createElement('div'); left.className = 'left'; left.dataset.due = x.due; left.textContent = fmtLeft(x.due - Date.now());
+    const what = document.createElement('div'); what.className = 'what';
+    what.textContent = x.label + (x.kind === 'at' ? ' · at ' + new Date(x.due).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '');
+    info.append(left, what);
+    const c = document.createElement('button'); c.textContent = 'Cancel';
+    c.addEventListener('click', () => { if (IN_APP) { try { AndroidGlasses.cancelAlarm(String(x.id)); } catch (_) {} } setTimers(getTimers().filter(y => y.id !== x.id)); });
+    li.append(info, c); ul.appendChild(li);
+  });
+  const n = t.length; $('timer-count').textContent = n ? n + ' running' : 'None running';
+}
+let audioCtx = null;
+function beep() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.4, 0.8].forEach(off => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 880; g.gain.value = 0.2; o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime + off); o.stop(audioCtx.currentTime + off + 0.25); });
+  } catch (_) {}
+}
+async function fire(x) {
+  log('Timer done: ' + x.label);
+  $('alarm-text').textContent = '⏰ ' + x.label + (x.kind === 'at' ? '' : ' — time\'s up!');
+  $('alarm').hidden = false; window.scrollTo(0, 0);
+  try { navigator.vibrate && navigator.vibrate([400, 200, 400, 200, 400]); } catch (_) {}
+  beep();
+  if (connected) { try { await sendNote('⏰ ' + x.label, x.kind === 'at' ? 'Reminder' : 'Time\'s up!'); x.told = true; } catch (e) { log('Alarm to lens failed: ' + e.message); } }
+  return x;
+}
+async function tick() {
+  const now = Date.now();
+  document.querySelectorAll('.running .left').forEach(el => { el.textContent = fmtLeft(+el.dataset.due - now); });
+  const all = getTimers();
+  const due = all.filter(x => !x.fired && x.due <= now);
+  if (due.length) {
+    due.forEach(x => { x.fired = true; });
+    save('timers', all);
+    for (const x of due) await fire(x);
+    save('timers', all.filter(x => !(x.fired && x.told)).filter(x => !x.fired || now - x.due < 6 * 3600e3));
+    drawTimers();
+  }
+}
+async function tellMissed() {
+  const all = getTimers(), missed = all.filter(x => x.fired && !x.told);
+  for (const x of missed) { try { await sendNote('⏰ ' + x.label, 'Went off at ' + new Date(x.due).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })); x.told = true; } catch (_) {} }
+  if (missed.length) save('timers', all.filter(x => !x.told));
+}
+setInterval(tick, 1000);
+
+// ---------- moving between screens (the phone's Back gesture works too) ----------
+function openView(name, push = true) {
+  ['home', 'list', 'maps', 'mem', 'timer'].forEach(v => { $('v-' + v).hidden = v !== name; });
+  if (name === 'list') { $('list-title').textContent = LISTS[currentList].title; $('list-input').placeholder = LISTS[currentList].placeholder; drawList(); }
+  if (name === 'maps') drawPlaces();
+  if (name === 'mem') { drawMems(); $('mem-found').textContent = ''; }
+  if (name === 'timer') drawTimers();
+  if (push) history.pushState({ view: name, list: currentList }, '');
+  window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', e => {
+  const s = e.state || { view: 'home' };
+  if (s.list) currentList = s.list;
+  openView(s.view || 'home', false);
+});
+history.replaceState({ view: 'home' }, '');
+
+// ---------- buttons ----------
+document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.open;
+  if (k === 'shop' || k === 'todo') { currentList = k; openView('list'); } else openView(k);
+}));
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => history.back()));
+$('connect').addEventListener('click', connect);
+$('mem-save').addEventListener('click', saveMem);
+$('mem-go').addEventListener('click', findMem);
+$('mem-find').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findMem(); } });
+document.querySelectorAll('[data-min]').forEach(b => b.addEventListener('click', () => { addTimer(Date.now() + b.dataset.min * 60000, $('t-label').value.trim(), 'in'); flash(b, '✓'); }));
+$('t-start').addEventListener('click', () => {
+  const m = parseFloat($('t-mins').value);
+  if (!(m > 0)) { flash($('t-start'), 'Minutes?'); $('t-mins').focus(); return; }
+  addTimer(Date.now() + m * 60000, $('t-label').value.trim(), 'in'); $('t-mins').value = ''; flash($('t-start'), 'Started ✓');
+});
+$('t-set').addEventListener('click', () => {
+  const v = $('t-at').value;
+  if (!v) { flash($('t-set'), 'Pick a time'); $('t-at').focus(); return; }
+  const [h, mi] = v.split(':').map(Number), d = new Date(); d.setHours(h, mi, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  addTimer(d.getTime(), $('t-label').value.trim(), 'at'); $('t-at').value = ''; flash($('t-set'), 'Set ✓');
+});
+$('alarm-ok').addEventListener('click', () => { $('alarm').hidden = true; });
+$('list-add').addEventListener('click', addItem);
+$('list-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } });
+$('list-show').addEventListener('click', e => showList(e.currentTarget));
+$('list-clear').addEventListener('click', () => { setItems(currentList, getItems(currentList).filter(i => !i.done)); drawList(); });
+$('go').addEventListener('click', () => goTo($('place').value));
+$('place').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); goTo($('place').value); } });
+$('brtDown').addEventListener('click', e => setting('Brightness', 0x0E, clamp((state.brt ?? 5) - 1, 0, 10), e.currentTarget));
+$('brtUp').addEventListener('click', e => setting('Brightness', 0x0E, clamp((state.brt ?? 5) + 1, 0, 10), e.currentTarget));
+$('auto').addEventListener('click', e => setting('Auto', 0x0F, state.autobrt ? 0 : 1, e.currentTarget));
+$('posDown').addEventListener('click', e => setting('Height', 0x0A, clamp((state.pos ?? 4) - 1, 0, 8), e.currentTarget));
+$('posUp').addEventListener('click', e => setting('Height', 0x0A, clamp((state.pos ?? 4) + 1, 0, 8), e.currentTarget));
+$('copy').addEventListener('click', async () => {
+  const text = logLines.join('\n');
+  try { await navigator.clipboard.writeText(text); $('copy').textContent = 'Copied ✓'; }
+  catch (_) { const r = document.createRange(); r.selectNodeContents($('log')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Selected, now copy it'; }
+  setTimeout(() => { $('copy').textContent = 'Copy details'; }, 2500);
+});
+setInterval(() => { if (connected) refresh(); }, 60000);
+if (navigator.serial) navigator.serial.addEventListener('disconnect', () => onDisconnected());
+drawCounts();
+drawMemCount();
+drawTimers();
+render();
+if (IN_APP) setTimeout(connect, 600);
+</script>
+
+</body>
+</html>
